@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 
 type UploaderProps = {
   onResult?: (r: any) => void;
-  onProgress?: (p: { status: 'processing' | 'done' | 'error', percent: number }) => void;
+  onProgress?: (p: { status: 'processing' | 'done' | 'error'; percent: number }) => void;
   light?: boolean;
 };
 
@@ -18,14 +18,12 @@ export default function Uploader({ onResult, onProgress, light = false }: Upload
     setLoading(true);
     setProgress(0);
     try {
-      // scroll to results area so user sees progress
-      try { document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }); } catch (e) {}
+      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' });
       onProgress && onProgress({ status: 'processing', percent: 0 });
       const data = await uploadWithProgress(file, (p) => {
         setProgress(p);
         onProgress && onProgress({ status: 'processing', percent: p });
       });
-      // report completion
       onResult && onResult(data);
       onProgress && onProgress({ status: 'done', percent: 100 });
     } catch (err) {
@@ -45,17 +43,11 @@ export default function Uploader({ onResult, onProgress, light = false }: Upload
       xhr.open('POST', '/api/parse');
       xhr.responseType = 'json';
       xhr.upload.onprogress = function (e) {
-        if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100);
-          onProgress(percent);
-        }
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
       xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(xhr.response);
-        } else {
-          reject(new Error(xhr.response?.error || `Upload failed: ${xhr.status}`));
-        }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
+        else reject(new Error(xhr.response?.error || `Upload failed: ${xhr.status}`));
       };
       xhr.onerror = function () {
         reject(new Error('Network error'));
@@ -78,7 +70,6 @@ export default function Uploader({ onResult, onProgress, light = false }: Upload
   }
 
   async function useSample() {
-    // simple sample text for demo; create a PDF in-browser using pdf-lib
     const sampleText = `DocuScan Sample Statement\n\nAccount: Sample Card Ending in 1234\nStatement Period: Sep 01, 2025 - Sep 30, 2025\nPayment Due Date: Oct 22, 2025\nNew Balance: $123.45\n`;
     try {
       const pdfLib = await import('pdf-lib');
@@ -89,8 +80,7 @@ export default function Uploader({ onResult, onProgress, light = false }: Upload
       const fontSize = 12;
       page.drawText(sampleText, { x: 24, y: 760, size: fontSize, font });
   const uint8 = await doc.save();
-  const u8 = Uint8Array.from(uint8);
-  const blob = new Blob([u8.buffer], { type: 'application/pdf' });
+  const blob = new Blob([new Uint8Array(uint8)], { type: 'application/pdf' });
       const file = new File([blob], 'docuscan-sample.pdf', { type: 'application/pdf' });
       await handleFile(file);
     } catch (e) {
@@ -99,31 +89,30 @@ export default function Uploader({ onResult, onProgress, light = false }: Upload
     }
   }
 
-  const dashed = light ? '2px dashed #e6e7f8' : '2px dashed #6b21a8';
-  const bg = light ? '#ffffff' : 'linear-gradient(180deg, rgba(107,33,168,0.06), transparent)';
-  const textColor = light ? '#111827' : '#fff';
-  const hintColor = light ? '#6b7280' : '#b9a0d9';
-  const btnBg = light ? '#111827' : '#6b21a8';
+  const dashedClass = light ? 'border-dashed border-2 border-slate-200' : 'border-dashed border-2 border-slate-700';
 
   return (
     <div>
       {loading && (
-        <div style={{ height: 8, background: '#f1f5f9', borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
-          <div style={{ width: progress != null ? `${progress}%` : '40%', height: '100%', background: '#7c3aed', transition: 'width 200ms linear' }} />
+        <div className="h-2 bg-slate-700 rounded overflow-hidden mb-3">
+          <div className="h-full bg-cyan-400" style={{ width: progress != null ? `${progress}%` : '40%' }} />
         </div>
       )}
-      <div onDrop={onDrop} onDragOver={(e) => e.preventDefault()} style={{ border: dashed, borderRadius: 10, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: bg }}>
+
+      <div onDrop={onDrop} onDragOver={(e) => e.preventDefault()} className={`p-4 rounded-lg flex justify-between items-center ${dashedClass} bg-gradient-to-b from-slate-900/20`}>
         <div>
-          <strong style={{ color: textColor }}>Drop a PDF here</strong>
-          <div style={{ color: hintColor }}>or click to choose a file</div>
+          <strong className="text-white">Drop a PDF here</strong>
+          <div className="text-sm text-slate-400">or click to choose a file</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input ref={inputRef} type="file" accept="application/pdf" onChange={onChange} style={{ display: 'none' }} />
-          <button onClick={() => inputRef.current && inputRef.current.click()} style={{ background: btnBg, color: '#fff', border: 'none', padding: '10px 14px', borderRadius: 8, cursor: 'pointer' }}>{loading ? 'Parsing...' : 'Choose file'}</button>
-          <button onClick={useSample} style={{ background: '#eef2ff', color: '#111827', border: 'none', padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }} disabled={loading}>Use sample</button>
+
+        <div className="flex gap-3 items-center">
+          <input ref={inputRef} type="file" accept="application/pdf" onChange={onChange} className="hidden" />
+          <button onClick={() => inputRef.current && inputRef.current.click()} className="px-3 py-2 rounded-md text-slate-900 font-semibold" style={{ background: 'var(--accent)' }}>{loading ? 'Parsing...' : 'Choose file'}</button>
+          <button onClick={useSample} className="px-3 py-2 rounded-md bg-slate-100 text-slate-900" disabled={loading}>Use sample</button>
         </div>
       </div>
-      {error && <div style={{ color: '#ef4444', marginTop: 8 }}>{error}</div>}
+
+      {error && <div className="text-red-400 mt-2">{error}</div>}
     </div>
   );
 }
